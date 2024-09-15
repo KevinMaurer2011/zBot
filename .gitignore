@@ -1,0 +1,17 @@
+# Virtual Environment
+venv/
+env/
+
+# Environment Variables
+.env
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Other common files to ignore
+.DS_Store
+*.log
+
+# personal files to ignore
+/images-files/chromedriver.exe
