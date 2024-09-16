@@ -29,6 +29,7 @@ ALLIANCE_NAMES = {
     "3": "Free Time Fun",
     "4": "44444",
     "5": "55555",
+    "6": "Zible Believers"
     # Add more alliances as needed
 }
 
@@ -568,11 +569,11 @@ async def logisticcalc(ctx, vehicles: int, hours: int, mins: int):
 
 
 @bot.command(
-    name="alliancepower",
-    description="Compare the total power of the top 5 alliances",
-    brief="Compare top 5 alliance powers",
+    name="alliancescore",
+    description="Compare the total score of the top 5 alliances",
+    brief="Compare top 5 alliance scores",
 )
-async def alliancepower(ctx):
+async def alliancescore(ctx):
     try:
         # Load the latest player data
         latest_player_data_file = max(
@@ -581,7 +582,7 @@ async def alliancepower(ctx):
         with open(latest_player_data_file, "rb") as fp:
             player_data = pickle.load(fp)
 
-        alliance_power = {}
+        alliance_score = {}
         alliance_members = {}
 
         if isinstance(player_data, list):
@@ -595,32 +596,32 @@ async def alliancepower(ctx):
         for player in players:
             alliance_id = str(player.get("allianceId", -1))
             if alliance_id != "-1":
-                if alliance_id not in alliance_power:
-                    alliance_power[alliance_id] = 0
+                if alliance_id not in alliance_score:
+                    alliance_score[alliance_id] = 0
                     alliance_members[alliance_id] = 0
-                alliance_power[alliance_id] += player.get("score", 0)
+                alliance_score[alliance_id] += player.get("score", 0)
                 alliance_members[alliance_id] += 1
 
-        # Sort alliances by total power and get top 5
+        # Sort alliances by total score and get top 5
         sorted_alliances = sorted(
-            alliance_power.items(), key=lambda x: x[1], reverse=True
+            alliance_score.items(), key=lambda x: x[1], reverse=True
         )[:5]
 
         # Create embed
         embed = discord.Embed(
-            title="Top 5 Alliance Power Comparison", color=discord.Color.blue()
+            title="Top 5 Alliance Score Comparison", color=discord.Color.blue()
         )
 
-        for alliance_id, total_power in sorted_alliances:
+        for alliance_id, total_score in sorted_alliances:
             alliance_name = ALLIANCE_NAMES.get(alliance_id, f"Alliance {alliance_id}")
             member_count = alliance_members[alliance_id]
-            avg_power = total_power / member_count if member_count > 0 else 0
+            avg_score = total_score / member_count if member_count > 0 else 0
 
             embed.add_field(
                 name=alliance_name,
-                value=f"Total Power: {total_power:,}\n"
+                value=f"Total Score: {total_score:,}\n"
                 f"Members: {member_count}\n"
-                f"Avg Power: {avg_power:,.2f}",
+                f"Avg Score: {avg_score:,.2f}",
                 inline=False,
             )
 
@@ -628,7 +629,6 @@ async def alliancepower(ctx):
 
     except Exception as e:
         await ctx.send(f"An error occurred: {str(e)}")
-
 
 # Run the bot
 bot.run(os.getenv("DISCORD_TOKEN"))
