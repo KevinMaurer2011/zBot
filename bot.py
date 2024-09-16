@@ -570,10 +570,10 @@ async def logisticcalc(ctx, vehicles: int, hours: int, mins: int):
 
 @bot.command(
     name="alliancescore",
-    description="Compare the total score of the top 5 alliances",
+    description="Compare the total score of the top 5 alliances, optionally for a specific continent",
     brief="Compare top 5 alliance scores",
 )
-async def alliancescore(ctx):
+async def alliancescore(ctx, continent: str = None):
     try:
         # Load the latest player data
         latest_player_data_file = max(
@@ -581,6 +581,13 @@ async def alliancescore(ctx):
         )
         with open(latest_player_data_file, "rb") as fp:
             player_data = pickle.load(fp)
+
+        # Load the latest world data
+        latest_world_data_file = max(
+            glob.glob("D:/ZaleniaData/WorldData/*"), key=os.path.getctime
+        )
+        with open(latest_world_data_file, "rb") as fp:
+            world_data = pickle.load(fp)
 
         alliance_score = {}
         alliance_members = {}
@@ -593,14 +600,19 @@ async def alliancescore(ctx):
             await ctx.send("Unable to process player data.")
             return
 
-        for player in players:
-            alliance_id = str(player.get("allianceId", -1))
-            if alliance_id != "-1":
-                if alliance_id not in alliance_score:
-                    alliance_score[alliance_id] = 0
-                    alliance_members[alliance_id] = 0
-                alliance_score[alliance_id] += player.get("score", 0)
-                alliance_members[alliance_id] += 1
+        player_alliance_dict = {player["playerGuid"]: str(player.get("allianceId", -1)) for player in players}
+
+        for cont_data in world_data['continents']:
+            if continent is None or cont_data['continentIdentifier'] == continent:
+                for city_data in cont_data['cities']:
+                    player_guid = city_data['playerGuid']
+                    alliance_id = player_alliance_dict.get(player_guid, "-1")
+                    if alliance_id != "-1":
+                        if alliance_id not in alliance_score:
+                            alliance_score[alliance_id] = 0
+                            alliance_members[alliance_id] = 0
+                        alliance_score[alliance_id] += city_data.get("score", 0)
+                        alliance_members[alliance_id] += 1
 
         # Sort alliances by total score and get top 5
         sorted_alliances = sorted(
@@ -609,7 +621,8 @@ async def alliancescore(ctx):
 
         # Create embed
         embed = discord.Embed(
-            title="Top 5 Alliance Score Comparison", color=discord.Color.blue()
+            title=f"Top 5 Alliance Score Comparison{' on Continent ' + continent if continent else ''}",
+            color=discord.Color.blue(),
         )
 
         for alliance_id, total_score in sorted_alliances:
