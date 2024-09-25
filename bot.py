@@ -11,7 +11,7 @@ import csv
 from datetime import datetime
 from matplotlib.ticker import FuncFormatter
 import matplotlib.dates as mdates
-
+import math
 
 # Load environment variables
 load_dotenv()
@@ -29,7 +29,7 @@ ALLIANCE_NAMES = {
     "3": "Free Time Fun",
     "4": "44444",
     "5": "55555",
-    "6": "Zible Believers"
+    "6": "Zible Believers",
     # Add more alliances as needed
 }
 
@@ -600,12 +600,15 @@ async def alliancescore(ctx, continent: str = None):
             await ctx.send("Unable to process player data.")
             return
 
-        player_alliance_dict = {player["playerGuid"]: str(player.get("allianceId", -1)) for player in players}
+        player_alliance_dict = {
+            player["playerGuid"]: str(player.get("allianceId", -1))
+            for player in players
+        }
 
-        for cont_data in world_data['continents']:
-            if continent is None or cont_data['continentIdentifier'] == continent:
-                for city_data in cont_data['cities']:
-                    player_guid = city_data['playerGuid']
+        for cont_data in world_data["continents"]:
+            if continent is None or cont_data["continentIdentifier"] == continent:
+                for city_data in cont_data["cities"]:
+                    player_guid = city_data["playerGuid"]
                     alliance_id = player_alliance_dict.get(player_guid, "-1")
                     if alliance_id != "-1":
                         if alliance_id not in alliance_score:
@@ -642,6 +645,208 @@ async def alliancescore(ctx, continent: str = None):
 
     except Exception as e:
         await ctx.send(f"An error occurred: {str(e)}")
+
+
+@bot.command(
+    name="attackplanner",
+    description="List castles of the same alliance as the city at given coordinates",
+    brief="List alliance castles near coordinates",
+    aliases=[],
+)
+async def attackplanner(ctx, xcoord: int, ycoord: int):
+    try:
+        # Load the latest world data
+        latest_world_data_file = max(
+            glob.glob("D:/ZaleniaData/WorldData/*"), key=os.path.getctime
+        )
+        with open(latest_world_data_file, "rb") as fp:
+            world_data = pickle.load(fp)
+
+        # Load the latest player data
+        latest_player_data_file = max(
+            glob.glob("D:/ZaleniaData/PlayerData/*"), key=os.path.getctime
+        )
+        with open(latest_player_data_file, "rb") as fp:
+            player_data = pickle.load(fp)
+
+        # Create player_alliance_dict
+        if isinstance(player_data, list):
+            players = player_data
+        elif isinstance(player_data, dict) and "players" in player_data:
+            players = player_data["players"]
+        else:
+            await ctx.send("Unable to process player data.")
+            return
+
+        player_alliance_dict = {
+            player["playerGuid"]: str(player.get("allianceId", -1))
+            for player in players
+        }
+
+        # Find the continent and alliance of the given coordinates
+        target_continent = None
+        target_alliance = None
+        for cont_data in world_data["continents"]:
+            for city_data in cont_data["cities"]:
+                if (
+                    city_data["locationX"] == xcoord
+                    and city_data["locationY"] == ycoord
+                ):
+                    target_continent = cont_data["continentIdentifier"]
+                    player_guid = city_data["playerGuid"]
+                    target_alliance = player_alliance_dict.get(player_guid)
+                    break
+            if target_continent:
+                break
+
+        if not target_continent or not target_alliance:
+            await ctx.send(f"No city found at coordinates ({xcoord}, {ycoord})")
+            return
+
+        castles = []
+        for city_data in cont_data["cities"]:
+            if (
+                city_data["isCastle"]
+                and player_alliance_dict.get(city_data["playerGuid"]) == target_alliance
+            ):
+                distance = (
+                    (city_data["locationX"] - xcoord) ** 2
+                    + (city_data["locationY"] - ycoord) ** 2
+                ) ** 0.5
+                castles.append(
+                    [
+                        city_data["locationX"],
+                        city_data["locationY"],
+                        f"({city_data['locationX']}:{city_data['locationY']})",
+                        city_data["name"],
+                        city_data["score"],
+                        round(distance, 2),
+                    ]
+                )
+
+        if not castles:
+            await ctx.send(
+                f"No castles from the same alliance found near ({xcoord}, {ycoord})"
+            )
+            return
+
+        # Sort castles by distance
+        castles.sort(key=lambda x: x[5])
+
+        # Create and save CSV file
+        filename = f"alliance_castles_{target_continent}.csv"
+        with open(filename, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["X", "Y", "Coordinates", "Name", "Score", "Distance"])
+            writer.writerows(castles)
+
+        # Send the CSV file
+        file = discord.File(filename)
+        await ctx.send(
+            f"Castles of the same alliance on continent {target_continent}, sorted by distance from ({xcoord}, {ycoord}):",
+            file=file,
+        )
+
+        # Clean up the file
+        os.remove(filename)
+
+    except Exception as e:
+        await ctx.send(f"An error occurred: {str(e)}")
+
+
+@bot.command(
+    name="altar",
+    description="List cities and castles by distance from provided altar coordinates",
+    brief="List cities/castles near altar",
+)
+async def altar(ctx, x: int, y: int, radius: int = 6):
+    try:
+        # Load the latest world data
+        latest_world_data_file = max(
+            glob.glob("D:/ZaleniaData/WorldData/*"), key=os.path.getctime
+        )
+        with open(latest_world_data_file, "rb") as fp:
+            world_data = pickle.load(fp)
+
+        # Load the latest player data
+        latest_player_data_file = max(
+            glob.glob("D:/ZaleniaData/PlayerData/*"), key=os.path.getctime
+        )
+        with open(latest_player_data_file, "rb") as fp:
+            player_data = pickle.load(fp)
+
+        # Create dictionaries to map playerGuid to alliance
+        player_guid_to_alliance = {}
+        if isinstance(player_data, list):
+            for player in player_data:
+                if "playerGuid" in player and "allianceId" in player:
+                    player_guid_to_alliance[player["playerGuid"]] = ALLIANCE_NAMES.get(
+                        str(player["allianceId"]), "Unknown"
+                    )
+        elif isinstance(player_data, dict) and "players" in player_data:
+            for player in player_data["players"]:
+                if "playerGuid" in player and "allianceId" in player:
+                    player_guid_to_alliance[player["playerGuid"]] = ALLIANCE_NAMES.get(
+                        str(player["allianceId"]), "Unknown"
+                    )
+
+        # Find the continent of the given coordinates
+        target_continent = None
+        for cont_data in world_data["continents"]:
+            for city in cont_data["cities"]:
+                if city["locationX"] == x and city["locationY"] == y:
+                    target_continent = cont_data
+                    break
+            if target_continent:
+                break
+
+        if not target_continent:
+            await ctx.send(f"No continent found for altar coordinates ({x}, {y})")
+            return
+
+        # Generate surroundings data (only cities and castles)
+        surroundings_data = []
+        for city in target_continent["cities"]:
+            dx = city["locationX"] - x
+            dy = city["locationY"] - y
+            distance = math.sqrt(dx**2 + dy**2)
+            if distance <= radius:
+                tile_type = "Castle" if city["isCastle"] else "City"
+                alliance = player_guid_to_alliance.get(city["playerGuid"], "Unknown")
+                surroundings_data.append(
+                    [
+                        city["locationX"],
+                        city["locationY"],
+                        tile_type,
+                        city["name"],
+                        alliance,
+                        round(distance, 2),
+                    ]
+                )
+
+        # Sort by distance
+        surroundings_data.sort(key=lambda x: x[5])
+
+        # Create and save CSV file
+        filename = f"altar_surroundings_{x}_{y}_r{radius}.csv"
+        with open(filename, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["X", "Y", "Type", "Name", "Alliance", "Distance"])
+            writer.writerows(surroundings_data)
+
+        # Send the CSV file
+        file = discord.File(filename)
+        await ctx.send(
+            f"Cities and castles within radius {radius} of altar at ({x}, {y}):",
+            file=file,
+        )
+
+        # Clean up the file
+        os.remove(filename)
+
+    except Exception as e:
+        await ctx.send(f"An error occurred: {str(e)}")
+
 
 # Run the bot
 bot.run(os.getenv("DISCORD_TOKEN"))
