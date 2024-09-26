@@ -613,9 +613,9 @@ async def alliancescore(ctx, continent: str = None):
                     if alliance_id != "-1":
                         if alliance_id not in alliance_score:
                             alliance_score[alliance_id] = 0
-                            alliance_members[alliance_id] = 0
+                            alliance_members[alliance_id] = set()
                         alliance_score[alliance_id] += city_data.get("score", 0)
-                        alliance_members[alliance_id] += 1
+                        alliance_members[alliance_id].add(player_guid)
 
         # Sort alliances by total score and get top 5
         sorted_alliances = sorted(
@@ -630,7 +630,7 @@ async def alliancescore(ctx, continent: str = None):
 
         for alliance_id, total_score in sorted_alliances:
             alliance_name = ALLIANCE_NAMES.get(alliance_id, f"Alliance {alliance_id}")
-            member_count = alliance_members[alliance_id]
+            member_count = len(alliance_members[alliance_id])
             avg_score = total_score / member_count if member_count > 0 else 0
 
             embed.add_field(
