@@ -669,7 +669,7 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
         with open(latest_player_data_file, "rb") as fp:
             player_data = pickle.load(fp)
 
-        # Create player_alliance_dict
+        # Create player_alliance_dict and player_name_dict
         if isinstance(player_data, list):
             players = player_data
         elif isinstance(player_data, dict) and "players" in player_data:
@@ -682,6 +682,20 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
             player["playerGuid"]: str(player.get("allianceId", -1))
             for player in players
         }
+        
+        player_name_dict = {
+            player["playerGuid"]: player["username"]
+            for player in players
+        }
+
+        # Calculate total score for each player
+        player_total_score = {}
+        for cont_data in world_data["continents"]:
+            for city_data in cont_data["cities"]:
+                player_guid = city_data["playerGuid"]
+                if player_guid not in player_total_score:
+                    player_total_score[player_guid] = 0
+                player_total_score[player_guid] += city_data.get("score", 0)
 
         # Find the continent and alliance of the given coordinates
         target_continent = None
@@ -709,6 +723,7 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
                 city_data["isCastle"]
                 and player_alliance_dict.get(city_data["playerGuid"]) == target_alliance
             ):
+                player_guid = city_data["playerGuid"]
                 distance = (
                     (city_data["locationX"] - xcoord) ** 2
                     + (city_data["locationY"] - ycoord) ** 2
@@ -719,7 +734,9 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
                         city_data["locationY"],
                         f"({city_data['locationX']}:{city_data['locationY']})",
                         city_data["name"],
+                        player_name_dict.get(player_guid, "Unknown"),
                         city_data["score"],
+                        player_total_score.get(player_guid, 0),
                         round(distance, 2),
                     ]
                 )
@@ -731,13 +748,13 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
             return
 
         # Sort castles by distance
-        castles.sort(key=lambda x: x[5])
+        castles.sort(key=lambda x: x[7])
 
         # Create and save CSV file
         filename = f"alliance_castles_{target_continent}.csv"
         with open(filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["X", "Y", "Coordinates", "Name", "Score", "Distance"])
+            writer.writerow(["X", "Y", "Coordinates", "City Name", "Owner Name", "City Score", "Owner Total Score", "Distance"])
             writer.writerows(castles)
 
         # Send the CSV file
