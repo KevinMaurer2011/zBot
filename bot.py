@@ -40,15 +40,29 @@ async def on_ready():
     await bot.change_presence(activity=discord.Game(name="processing Zalenia data!"))
 
 
-@bot.command()
+@bot.command(
+    name="ping",
+    description="Check bot's latency",
+    brief="Check bot latency",
+    usage="!ping",
+    help="Returns the bot's current latency in milliseconds.\n\n"
+         "Example: !ping"
+)
 async def ping(ctx):
     await ctx.send(f"Pong! Latency: {round(bot.latency * 1000)}ms")
 
 
 @bot.command(
     name="inteladd",
-    description="Add intel about a city at specific coordinates",
-    brief="Add intel for a city",
+    description="Add intel about a city",
+    brief="Add intel for coordinates",
+    usage="<x> <y> <message>",
+    help="Adds intel information for a city at the specified coordinates.\n\n"
+         "Parameters:\n"
+         "- x: X coordinate of the city\n"
+         "- y: Y coordinate of the city\n"
+         "- message: The intel information to store\n\n"
+         "Example: !inteladd 100 200 Strong castle with T5 troops"
 )
 async def inteladd(ctx, xcoord: int, ycoord: int, *, message: str):
     intel_file = "D:/ZaleniaData/cityintel.json"
@@ -82,6 +96,12 @@ async def inteladd(ctx, xcoord: int, ycoord: int, *, message: str):
     name="intel",
     description="Get intel about a city at specific coordinates",
     brief="Get intel for a city",
+    usage="<x> <y>",
+    help="Retrieves stored intel information for a city at the specified coordinates.\n\n"
+         "Parameters:\n"
+         "- x: X coordinate of the city\n"
+         "- y: Y coordinate of the city\n\n"
+         "Example: !intel 100 200"
 )
 async def intel(ctx, xcoord: int, ycoord: int):
     intel_file = "D:/ZaleniaData/cityintel.json"
@@ -117,6 +137,12 @@ async def intel(ctx, xcoord: int, ycoord: int):
     name="inteldelete",
     description="Delete intel about a city at specific coordinates",
     brief="Delete intel for a city",
+    usage="<x> <y>",
+    help="Deletes stored intel information for a city at the specified coordinates.\n\n"
+         "Parameters:\n"
+         "- x: X coordinate of the city\n"
+         "- y: Y coordinate of the city\n\n"
+         "Example: !inteldelete 100 200"
 )
 async def inteldelete(ctx, xcoord: int, ycoord: int):
     intel_file = "D:/ZaleniaData/cityintel.json"
@@ -148,6 +174,9 @@ async def inteldelete(ctx, xcoord: int, ycoord: int):
     name="intelcsv",
     description="Export all intel data to a CSV file",
     brief="Export intel to CSV",
+    usage="!intelcsv",
+    help="Exports all stored intel data to a CSV file, including city coordinates, owners, and intel information.\n\n"
+         "Example: !intelcsv"
 )
 async def intelcsv(ctx):
     intel_file = "D:/ZaleniaData/cityintel.json"
@@ -188,31 +217,39 @@ async def intelcsv(ctx):
         else:
             player_guid_to_name = {}
 
-        # Create a dictionary to map coordinates to city owner
+        # Create dictionaries to map coordinates to city owner and continent
         city_owner_map = {}
+        city_continent_map = {}
         for continent in latest_world_data["continents"]:
+            cont_id = continent["continentIdentifier"]  # Get the continent ID
             for city in continent["cities"]:
                 coords = f"{city['locationX']},{city['locationY']}"
                 owner_guid = city["playerGuid"]
                 owner_name = player_guid_to_name.get(owner_guid, owner_guid)
                 city_owner_map[coords] = owner_name
+                city_continent_map[coords] = cont_id  # Store just the continent ID
 
         # Prepare CSV file
         with open(csv_file, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(
-                ["X", "Y", "City Owner", "Intel", "Timestamp", "Added By"]
-            )  # CSV Header
+                ["X", "Y", "Coordinates", "Continent", "City Owner", "Intel", "Timestamp", "Added By"]
+            )
 
             # Write data
             for key, value in cityintel.items():
                 x, y = key.split(",")
+                formatted_coords = f"({x}:{y})"
+                continent = city_continent_map.get(key, "Unknown")  # This should now be just the continent number
                 owner = city_owner_map.get(key, "Unknown")
+                
                 if isinstance(value, dict):
                     writer.writerow(
                         [
                             x,
                             y,
+                            formatted_coords,
+                            continent,  # This should now show correctly
                             owner,
                             value.get("message", ""),
                             value.get("added_on", ""),
@@ -226,20 +263,16 @@ async def intelcsv(ctx):
                                 [
                                     x,
                                     y,
+                                    formatted_coords,
+                                    continent,
                                     owner,
-                                    intel_entry.get(
-                                        "intel", intel_entry.get("message", "")
-                                    ),
-                                    intel_entry.get(
-                                        "timestamp", intel_entry.get("added_on", "")
-                                    ),
+                                    intel_entry.get("intel", intel_entry.get("message", "")),
+                                    intel_entry.get("timestamp", intel_entry.get("added_on", "")),
                                     intel_entry.get("added_by", ""),
                                 ]
                             )
                         else:
-                            print(
-                                f"Skipping invalid intel entry for {key}: {intel_entry}"
-                            )
+                            print(f"Skipping invalid intel entry for {key}: {intel_entry}")
                 else:
                     print(f"Skipping invalid value for {key}: {value}")
 
@@ -258,7 +291,12 @@ async def intelcsv(ctx):
     name="monuments",
     description="Count total monuments",
     brief="Count of all monuments",
-    aliases=[],
+    usage="[continent]",
+    help="Displays a count of monuments by type for the specified continent or all continents.\n\n"
+         "Parameters:\n"
+         "- continent: (Optional) Specific continent to check. Defaults to 'All Conts'\n\n"
+         "Example: !monuments\n"
+         "Example: !monuments C1"
 )
 async def monuments(ctx, contaskedfor="All Conts"):
     data_file_list = []
@@ -314,6 +352,12 @@ async def monuments(ctx, contaskedfor="All Conts"):
     description="Check cities that have changed ownership",
     brief="Cities that have flipped",
     aliases=["flipped"],
+    usage="[days]",
+    help="Shows cities that have changed ownership within the specified number of days.\n\n"
+         "Parameters:\n"
+         "- days: (Optional) Number of days to look back. Defaults to 1\n\n"
+         "Example: !citiesflipped\n"
+         "Example: !citiesflipped 3"
 )
 async def citiesflipped(ctx, days=1):
     try:
@@ -434,6 +478,13 @@ async def citiesflipped(ctx, days=1):
     name="playerscore",
     description="Chart player scores over time",
     brief="Chart player scores",
+    usage="<player1> [player2] [player3] ...",
+    help="Generates a chart showing score progression for specified players over the last 3 days.\n\n"
+         "Parameters:\n"
+         "- player1: Name of first player to track\n"
+         "- player2, player3, etc: (Optional) Additional players to compare\n\n"
+         "Example: !playerscore PlayerOne\n"
+         "Example: !playerscore PlayerOne PlayerTwo PlayerThree"
 )
 async def playerscore(ctx, *player_names):
     try:
@@ -540,6 +591,13 @@ async def playerscore(ctx, *player_names):
     name="logisticcalc",
     description="Calculate logistics capacity based on number of ships/carts and round-trip time",
     brief="Calculate logistics capacity",
+    usage="<vehicles> <hours> <minutes>",
+    help="Calculates the logistics capacity and resources per hour based on vehicle count and trip time.\n\n"
+         "Parameters:\n"
+         "- vehicles: Number of ships/carts\n"
+         "- hours: Hours for one-way trip\n"
+         "- minutes: Minutes for one-way trip\n\n"
+         "Example: !logisticcalc 10 2 30"
 )
 async def logisticcalc(ctx, vehicles: int, hours: int, mins: int):
     try:
@@ -570,8 +628,14 @@ async def logisticcalc(ctx, vehicles: int, hours: int, mins: int):
 
 @bot.command(
     name="alliancescore",
-    description="Compare the total score of the top 5 alliances, optionally for a specific continent",
+    description="Compare the total score of the top 5 alliances",
     brief="Compare top 5 alliance scores",
+    usage="[continent]",
+    help="Shows total score, member count, and average score for the top 5 alliances.\n\n"
+         "Parameters:\n"
+         "- continent: (Optional) Specific continent to analyze\n\n"
+         "Example: !alliancescore\n"
+         "Example: !alliancescore C1"
 )
 async def alliancescore(ctx, continent: str = None):
     try:
@@ -651,7 +715,12 @@ async def alliancescore(ctx, continent: str = None):
     name="attackplanner",
     description="List castles of the same alliance as the city at given coordinates",
     brief="List alliance castles near coordinates",
-    aliases=[],
+    usage="<x> <y>",
+    help="Generates a CSV file listing all castles belonging to the same alliance as the target coordinates.\n\n"
+         "Parameters:\n"
+         "- x: X coordinate of the target city\n"
+         "- y: Y coordinate of the target city\n\n"
+         "Example: !attackplanner 100 200"
 )
 async def attackplanner(ctx, xcoord: int, ycoord: int):
     try:
@@ -706,7 +775,7 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
                     city_data["locationX"] == xcoord
                     and city_data["locationY"] == ycoord
                 ):
-                    target_continent = cont_data["continentIdentifier"]
+                    target_continent = cont_data
                     player_guid = city_data["playerGuid"]
                     target_alliance = player_alliance_dict.get(player_guid)
                     break
@@ -733,6 +802,7 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
                         city_data["locationX"],
                         city_data["locationY"],
                         f"({city_data['locationX']}:{city_data['locationY']})",
+                        cont_data["continentIdentifier"],
                         city_data["name"],
                         player_name_dict.get(player_guid, "Unknown"),
                         city_data["score"],
@@ -748,19 +818,22 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
             return
 
         # Sort castles by distance
-        castles.sort(key=lambda x: x[7])
+        castles.sort(key=lambda x: x[8])
 
         # Create and save CSV file
-        filename = f"alliance_castles_{target_continent}.csv"
+        filename = f"alliance_castles_{target_continent['continentIdentifier']}.csv"
         with open(filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["X", "Y", "Coordinates", "City Name", "Owner Name", "City Score", "Owner Total Score", "Distance"])
+            writer.writerow([
+                "X", "Y", "Coordinates", "Continent", "City Name", 
+                "Owner Name", "City Score", "Owner Total Score", "Distance"
+            ])
             writer.writerows(castles)
 
         # Send the CSV file
         file = discord.File(filename)
         await ctx.send(
-            f"Castles of the same alliance on continent {target_continent}, sorted by distance from ({xcoord}, {ycoord}):",
+            f"Castles of the same alliance on continent {target_continent['continentIdentifier']}, sorted by distance from ({xcoord}, {ycoord}):",
             file=file,
         )
 
@@ -775,6 +848,14 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
     name="altar",
     description="List cities and castles by distance from provided altar coordinates",
     brief="List cities/castles near altar",
+    usage="<x> <y> [radius]",
+    help="Generates a CSV file listing all cities and castles within the specified radius of the altar.\n\n"
+         "Parameters:\n"
+         "- x: X coordinate of the altar\n"
+         "- y: Y coordinate of the altar\n"
+         "- radius: (Optional) Search radius in tiles. Defaults to 6\n\n"
+         "Example: !altar 100 200\n"
+         "Example: !altar 100 200 10"
 )
 async def altar(ctx, x: int, y: int, radius: int = 6):
     try:
