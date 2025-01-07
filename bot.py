@@ -803,7 +803,7 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
                 if city_data.get("hasMonument", False):
                     monument_type = city_data.get("monumentType", "Unknown")
                     features.append(f"Monument Type {monument_type}")
-                if city_data.get("isWaterTile", False):
+                if city_data.get("isWaterCity", False):
                     features.append("Water Castle")
                 
                 features_str = ", ".join(features) if features else ""
