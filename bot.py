@@ -806,7 +806,7 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
                 if city_data.get("isWaterTile", False):
                     features.append("Water Castle")
                 
-                features_str = ", ".join(features) if features else "None"
+                features_str = ", ".join(features) if features else ""
                 
                 castles.append(
                     [
@@ -819,7 +819,7 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
                         city_data["score"],
                         player_total_score.get(player_guid, 0),
                         round(distance, 2),
-                        features_str  # New column for special features
+                        features_str
                     ]
                 )
 
