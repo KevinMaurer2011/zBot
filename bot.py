@@ -797,6 +797,17 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
                     (city_data["locationX"] - xcoord) ** 2
                     + (city_data["locationY"] - ycoord) ** 2
                 ) ** 0.5
+                
+                # Determine special features
+                features = []
+                if city_data.get("hasMonument", False):
+                    monument_type = city_data.get("monumentType", "Unknown")
+                    features.append(f"Monument Type {monument_type}")
+                if city_data.get("isWaterTile", False):
+                    features.append("Water Castle")
+                
+                features_str = ", ".join(features) if features else "None"
+                
                 castles.append(
                     [
                         city_data["locationX"],
@@ -808,6 +819,7 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
                         city_data["score"],
                         player_total_score.get(player_guid, 0),
                         round(distance, 2),
+                        features_str  # New column for special features
                     ]
                 )
 
@@ -826,7 +838,7 @@ async def attackplanner(ctx, xcoord: int, ycoord: int):
             writer = csv.writer(csvfile)
             writer.writerow([
                 "X", "Y", "Coordinates", "Continent", "City Name", 
-                "Owner Name", "City Score", "Owner Total Score", "Distance"
+                "Owner Name", "City Score", "Owner Total Score", "Distance", "Special Features"
             ])
             writer.writerows(castles)
 
